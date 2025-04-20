@@ -52,6 +52,15 @@ class ListaVuelos:
             return None
         return self._trailer._anterior._vuelo
     
+    def obtener_nodo(self, posicion:int):
+        # Obtener un nodo en una posición específica
+        if posicion < 0 or posicion >= self._size:
+            raise IndexError("Posición fuera de rango")
+        nodo_actual = self._header._siguiente
+        for i in range(posicion):   ## Iterar hasta la posición deseada
+            nodo_actual = nodo_actual._siguiente
+        return nodo_actual
+    
     def insertar_entre(self, info: Vuelo, anterior, siguiente, db:Session):
         nuevo_nodo = self._Nodo(info, anterior, siguiente)
         anterior._siguiente = nuevo_nodo
@@ -79,11 +88,12 @@ class ListaVuelos:
             try:
                 # Encontrar el siguiente vuelo en la base de datos
                 siguiente_vuelo_db = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == siguiente._vuelo.codigo).first()
+                posicion_db = siguiente_vuelo_db.orden
                 if siguiente_vuelo_db:
                     # Aumentar el orden de todos los vuelos en la lista
                     db.query(ListaVueloDB).filter(ListaVueloDB.orden >= siguiente_vuelo_db.orden).update({ListaVueloDB.orden: ListaVueloDB.orden + 1})
                     # Agregar el nuevo vuelo a la lista
-                    nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=siguiente_vuelo_db.orden)
+                    nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=posicion_db)
                     db.add(nuevo_vuelo)
                     db.commit()
                     db.refresh(nuevo_vuelo)
@@ -153,3 +163,12 @@ class ListaVuelos:
     def insertar_final(self, vuelo:Vuelo):
         # Insertar un vuelo al final de la lista
         self.insertar_entre(vuelo, self._trailer._anterior, self._trailer, self._db)
+
+    def __str__(self):
+        # Representación de la lista como una cadena
+        nodos = []
+        nodo_actual = self._header._siguiente
+        while nodo_actual != self._trailer:
+            nodos.append(nodo_actual._vuelo.codigo)
+            nodo_actual = nodo_actual._siguiente
+        return "inicio " + " <-> ".join(nodos) + " <-> fin"

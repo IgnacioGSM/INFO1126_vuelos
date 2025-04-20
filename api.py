@@ -124,3 +124,48 @@ def insertar_final(codigo:str, db:Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/vuelos/insertar")   # Insertar en una posicion específica
+def insertar_vuelo(codigo:str, posicion:int, db:Session = Depends(get_db)):
+    try:
+        vuelo = db.query(Vuelo).filter(Vuelo.codigo == codigo).first()
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="Vuelo no encontrado")
+        
+        # Verificar si el vuelo ya está en la lista
+        vuelo_lista = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == codigo).first()
+        if vuelo_lista:
+            raise HTTPException(status_code=400, detail="El vuelo ya está en la lista")
+        
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        nodo_referencia = lista_vuelos.obtener_nodo(posicion)   # El nodo que estaba en esa posicion antes de la inserción
+        if nodo_referencia is None:
+            raise HTTPException(status_code=404, detail="Posición no válida en la lista")
+        lista_vuelos.insertar_entre(vuelo, nodo_referencia._anterior, nodo_referencia, db)
+
+        return {"mensaje": "Vuelo insertado en la posición especificada"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/vuelos/lista") # Endpoint para obtener la lista de vuelos
+def obtener_lista_vuelos(db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        return {"lista de vuelos": str(lista_vuelos)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/vuelos/lista/{posicion}") # Endpoint para obtener un vuelo específico de la lista
+def obtener_vuelo_lista(posicion:int, db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        vuelo = lista_vuelos.obtener_nodo(posicion)
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="Vuelo no encontrado en la lista")
+        return {"vuelo en la posición": posicion, "vuelo": vuelo._vuelo}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
