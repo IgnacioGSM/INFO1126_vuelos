@@ -51,3 +51,76 @@ def obtener_vuelos(db:Session = Depends(get_db)):
         return {"vuelos": vuelos}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/vuelos/total")   # Endpoint para obtener el total de vuelos
+def obtener_total_vuelos_lista(db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        return {"total de vuelos en la lista": len(lista_vuelos)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/vuelos/proximo") # Endpoint para el primer vuelo de la lista
+def obtener_proximo_vuelo(db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        vuelo = lista_vuelos.obtener_primero()
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="No hay vuelos en la lista")
+        return {"proximo vuelo": vuelo}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/vuelos/ultimo") # Endpoint para el último vuelo de la lista
+def obtener_ultimo_vuelo(db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        vuelo = lista_vuelos.obtener_ultimo()
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="No hay vuelos en la lista")
+        return {"ultimo vuelo": vuelo}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/vuelos/insertar/frente")    # Endpoint para insertar un vuelo al frente de la lista
+def insertar_frente(codigo:str, db:Session = Depends(get_db)):
+    try:
+        vuelo = db.query(Vuelo).filter(Vuelo.codigo == codigo).first()
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="Vuelo no encontrado")
+        
+        # Verificar si el vuelo ya está en la lista
+        vuelo_lista = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == codigo).first()
+        if vuelo_lista:
+            raise HTTPException(status_code=400, detail="El vuelo ya está en la lista")
+        
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        lista_vuelos.insertar_frente(vuelo)
+        return {"mensaje": "Vuelo insertado al frente de la lista"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/vuelos/insertar/final")   # Endpoint para insertar un vuelo al final de la lista
+def insertar_final(codigo:str, db:Session = Depends(get_db)):
+    try:
+        vuelo = db.query(Vuelo).filter(Vuelo.codigo == codigo).first()
+        if vuelo is None:
+            raise HTTPException(status_code=404, detail="Vuelo no encontrado")
+        
+        # Verificar si el vuelo ya está en la lista
+        vuelo_lista = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == codigo).first()
+        if vuelo_lista:
+            raise HTTPException(status_code=400, detail="El vuelo ya está en la lista")
+        
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        lista_vuelos.insertar_final(vuelo)
+        return {"mensaje": "Vuelo insertado al final de la lista"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))

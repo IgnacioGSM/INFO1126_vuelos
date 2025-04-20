@@ -28,7 +28,31 @@ class ListaVuelos:
     def esta_vacio(self):
         return self._size == 0
     
-    def _insertar_entre(self, info: Vuelo, anterior, siguiente, db:Session):
+    def cargar_db(self):
+        # Cargar la lista de vuelos desde la base de datos
+        vuelos_lista = self._db.query(ListaVueloDB).order_by(ListaVueloDB.orden).all()
+        for vuelo in vuelos_lista:
+            # Obtener el vuelo completo desde la base de datos
+            vuelo_completo = self._db.query(Vuelo).filter(Vuelo.codigo == vuelo.codigo_vuelo).first()
+            if vuelo_completo:
+                nuevo_nodo = self._Nodo(vuelo_completo, self._trailer._anterior, self._trailer)
+                self._trailer._anterior._siguiente = nuevo_nodo
+                self._trailer._anterior = nuevo_nodo
+                self._size += 1
+
+    def obtener_primero(self):
+        # Obtener el primer vuelo de la lista
+        if self.esta_vacio():
+            return None
+        return self._header._siguiente._vuelo
+
+    def obtener_ultimo(self):
+        # Obtener el último vuelo de la lista
+        if self.esta_vacio():
+            return None
+        return self._trailer._anterior._vuelo
+    
+    def insertar_entre(self, info: Vuelo, anterior, siguiente, db:Session):
         nuevo_nodo = self._Nodo(info, anterior, siguiente)
         anterior._siguiente = nuevo_nodo
         siguiente._anterior = nuevo_nodo
@@ -50,9 +74,48 @@ class ListaVuelos:
                 db.rollback()
                 raise e
         
+        # Si está en medio:
+        elif siguiente != self._trailer:
+            try:
+                # Encontrar el siguiente vuelo en la base de datos
+                siguiente_vuelo_db = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == siguiente._vuelo.codigo).first()
+                if siguiente_vuelo_db:
+                    # Aumentar el orden de todos los vuelos en la lista
+                    db.query(ListaVueloDB).filter(ListaVueloDB.orden >= siguiente_vuelo_db.orden).update({ListaVueloDB.orden: ListaVueloDB.orden + 1})
+                    # Agregar el nuevo vuelo a la lista
+                    nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=siguiente_vuelo_db.orden)
+                    db.add(nuevo_vuelo)
+                    db.commit()
+                    db.refresh(nuevo_vuelo)
+                else:
+                    raise ValueError("Vuelo siguiente no encontrado en la base de datos")
+            except Exception as e:
+                db.rollback()
+                raise e
+        
+        # Si se añade al último:
+        elif siguiente == self._trailer:
+            try:
+                # Obtener el último vuelo en la base de datos
+                ultimo_vuelo_db = db.query(ListaVueloDB).order_by(ListaVueloDB.orden.desc()).first()
+                if ultimo_vuelo_db:
+                    nuevo_orden = ultimo_vuelo_db.orden + 1
+                    nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=nuevo_orden)
+                    db.add(nuevo_vuelo)
+                    db.commit()
+                    db.refresh(nuevo_vuelo)
+                else:   # Lista vacia
+                    nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=1)
+                    db.add(nuevo_vuelo)
+                    db.commit()
+                    db.refresh(nuevo_vuelo)
+            except Exception as e:
+                db.rollback()
+                raise e
+        
         return nuevo_nodo
     
-    def _eliminar(self, nodo):
+    def eliminar(self, nodo):
         # Se puede eliminar cualquier nodo menos el header y el trailer, esos son delimitadores
         if nodo == self._header or nodo == self._trailer:
             raise ValueError("No se puede eliminar el nodo header o trailer")
@@ -65,4 +128,28 @@ class ListaVuelos:
         self._size -= 1
 
         info = nodo._vuelo  # Guardamos la info del vuelo antes de eliminar el nodo
-        # Eliminar 
+
+        # Eliminar de la lista en la base de datos
+        try:
+            # Encontrar el vuelo en la base de datos
+            vuelo_db = self._db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == info.codigo).first()
+            if vuelo_db:
+                # Eliminar el vuelo de la base de datos
+                self._db.delete(vuelo_db)
+                # Actualizar el orden de los vuelos restantes
+                self._db.query(ListaVueloDB).filter(ListaVueloDB.orden > vuelo_db.orden).update({ListaVueloDB.orden: ListaVueloDB.orden - 1})
+                self._db.commit()
+            else:
+                raise ValueError("Vuelo no encontrado en la base de datos")
+        except Exception as e:
+            self._db.rollback()
+            raise e
+        return info
+    
+    def insertar_frente(self, vuelo:Vuelo):
+        # Insertar un vuelo al frente de la lista
+        self.insertar_entre(vuelo, self._header, self._header._siguiente, self._db)
+    
+    def insertar_final(self, vuelo:Vuelo):
+        # Insertar un vuelo al final de la lista
+        self.insertar_entre(vuelo, self._trailer._anterior, self._trailer, self._db)
