@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Vuelo, ListaVuelo
+from models import Vuelo, ListaVueloDB
 
 class ListaVuelos:
     
@@ -40,9 +40,9 @@ class ListaVuelos:
         if anterior == self._header:
             try:
                 # Aumentar el orden de todos los vuelos en la lista
-                db.query(ListaVuelo).filter(ListaVuelo.orden >= 1).update({ListaVuelo.orden: ListaVuelo.orden + 1})
+                db.query(ListaVueloDB).filter(ListaVueloDB.orden >= 1).update({ListaVueloDB.orden: ListaVueloDB.orden + 1})
                 # Agregar el nuevo vuelo al inicio de la lista
-                nuevo_vuelo = ListaVuelo(codigo_vuelo=info.codigo, orden=1)
+                nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=1)
                 db.add(nuevo_vuelo)
                 db.commit()
                 db.refresh(nuevo_vuelo)  # Refrescar el objeto para obtener el ID generado
