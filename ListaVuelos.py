@@ -73,7 +73,10 @@ class ListaVuelos:
         if anterior == self._header:
             try:
                 # Aumentar el orden de todos los vuelos en la lista
-                db.query(ListaVueloDB).filter(ListaVueloDB.orden >= 1).update({ListaVueloDB.orden: ListaVueloDB.orden + 1})
+                vuelos_a_reaordenar = db.query(ListaVueloDB).filter(ListaVueloDB.orden >= 1).order_by(ListaVueloDB.orden.desc()).all()
+                for vuelo in vuelos_a_reaordenar:
+                    vuelo.orden += 1
+                    db.commit()
                 # Agregar el nuevo vuelo al inicio de la lista
                 nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=1)
                 db.add(nuevo_vuelo)
@@ -91,7 +94,10 @@ class ListaVuelos:
                 posicion_db = siguiente_vuelo_db.orden
                 if siguiente_vuelo_db:
                     # Aumentar el orden de todos los vuelos en la lista
-                    db.query(ListaVueloDB).filter(ListaVueloDB.orden >= siguiente_vuelo_db.orden).update({ListaVueloDB.orden: ListaVueloDB.orden + 1})
+                    vuelos_a_reaordenar = db.query(ListaVueloDB).filter(ListaVueloDB.orden >= posicion_db).order_by(ListaVueloDB.orden.desc()).all()
+                    for vuelo in vuelos_a_reaordenar:
+                        vuelo.orden += 1
+                        db.commit()
                     # Agregar el nuevo vuelo a la lista
                     nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=posicion_db)
                     db.add(nuevo_vuelo)
@@ -125,10 +131,10 @@ class ListaVuelos:
         
         return nuevo_nodo
     
-    def eliminar(self, nodo):
-        # Se puede eliminar cualquier nodo menos el header y el trailer, esos son delimitadores
+    def extraer(self, nodo):
+        # Se puede extraer cualquier nodo menos el header y el trailer, esos son delimitadores
         if nodo == self._header or nodo == self._trailer:
-            raise ValueError("No se puede eliminar el nodo header o trailer")
+            raise ValueError("No seextraer el nodo header o trailer")
             # Esto no debería ocurrir, pero se deja por si acaso
             # En la api no deberían aparecer estos nodos
         anterior = nodo._anterior
@@ -137,7 +143,7 @@ class ListaVuelos:
         siguiente._anterior = anterior
         self._size -= 1
 
-        info = nodo._vuelo  # Guardamos la info del vuelo antes de eliminar el nodo
+        info = nodo._vuelo  # Guardamos la info del vuelo anextraer el nodo
 
         # Eliminar de la lista en la base de datos
         try:
@@ -146,15 +152,18 @@ class ListaVuelos:
             if vuelo_db:
                 # Eliminar el vuelo de la base de datos
                 self._db.delete(vuelo_db)
-                # Actualizar el orden de los vuelos restantes
-                self._db.query(ListaVueloDB).filter(ListaVueloDB.orden > vuelo_db.orden).update({ListaVueloDB.orden: ListaVueloDB.orden - 1})
                 self._db.commit()
+                # Actualizar el orden de los vuelos restantes
+                vuelos_a_reaordenar = self._db.query(ListaVueloDB).filter(ListaVueloDB.orden > vuelo_db.orden).order_by(ListaVueloDB.orden.asc()).all()
+                for vuelo in vuelos_a_reaordenar:
+                    vuelo.orden -= 1
+                    self._db.commit()
+                return {"vuelo eliminado de la cola": info}
             else:
                 raise ValueError("Vuelo no encontrado en la base de datos")
         except Exception as e:
             self._db.rollback()
             raise e
-        return info
     
     def insertar_frente(self, vuelo:Vuelo):
         # Insertar un vuelo al frente de la lista

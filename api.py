@@ -149,6 +149,20 @@ def insertar_vuelo(codigo:str, posicion:int, db:Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     
+@app.delete("/vuelos/extraer") # Extraer el vuelo de una posicion dada
+def extraer_vuelo(posicion:int, db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        nodo_posicion = lista_vuelos.obtener_nodo(posicion)  # El nodo que estaba en esa posicion antes de la extracción
+        if nodo_posicion is None:
+            raise HTTPException(status_code=404, detail="Posición no válida en la lista")
+        lista_vuelos.extraer(nodo_posicion)  # Extraer el nodo de la lista
+        return {"mensaje": "Vuelo extraído de la posición especificada"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    
 @app.get("/vuelos/lista") # Endpoint para obtener la lista de vuelos
 def obtener_lista_vuelos(db:Session = Depends(get_db)):
     try:
