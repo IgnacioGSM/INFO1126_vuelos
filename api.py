@@ -139,7 +139,7 @@ def insertar_vuelo(codigo:str, posicion:int, db:Session = Depends(get_db)):
         
         lista_vuelos = ListaVuelos(db)
         lista_vuelos.cargar_db()
-        nodo_referencia = lista_vuelos.obtener_nodo(posicion)   # El nodo que estaba en esa posicion antes de la inserción
+        nodo_referencia = lista_vuelos.obtener_nodo_por_posicion(posicion)   # El nodo que estaba en esa posicion antes de la inserción
         if nodo_referencia is None:
             raise HTTPException(status_code=404, detail="Posición no válida en la lista")
         lista_vuelos.insertar_entre(vuelo, nodo_referencia._anterior, nodo_referencia, db)
@@ -154,11 +154,12 @@ def extraer_vuelo(posicion:int, db:Session = Depends(get_db)):
     try:
         lista_vuelos = ListaVuelos(db)
         lista_vuelos.cargar_db()
-        nodo_posicion = lista_vuelos.obtener_nodo(posicion)  # El nodo que estaba en esa posicion antes de la extracción
+        nodo_posicion = lista_vuelos.obtener_nodo_por_posicion(posicion)  # El nodo que estaba en esa posicion antes de la extracción
         if nodo_posicion is None:
             raise HTTPException(status_code=404, detail="Posición no válida en la lista")
         lista_vuelos.extraer(nodo_posicion)  # Extraer el nodo de la lista
-        return {"mensaje": "Vuelo extraído de la posición especificada"}
+        return {"mensaje": "Vuelo extraído de la posición especificada",
+                "vuelo": nodo_posicion._vuelo}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -177,9 +178,30 @@ def obtener_vuelo_lista(posicion:int, db:Session = Depends(get_db)):
     try:
         lista_vuelos = ListaVuelos(db)
         lista_vuelos.cargar_db()
-        vuelo = lista_vuelos.obtener_nodo(posicion)
+        vuelo = lista_vuelos.obtener_nodo_por_posicion(posicion)
         if vuelo is None:
             raise HTTPException(status_code=404, detail="Vuelo no encontrado en la lista")
         return {"vuelo en la posición": posicion, "vuelo": vuelo._vuelo}
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.patch("/vuelos/reordenar") # Cambia la posicion de un vuelo en la lista
+def reordenar_vuelo(codigo:str, nueva_posicion:int, db:Session = Depends(get_db)):
+    try:
+        lista_vuelos = ListaVuelos(db)
+        lista_vuelos.cargar_db()
+        nodo_vuelo = lista_vuelos.obtener_nodo_por_codigo(codigo)  # Obtener el nodo del vuelo por su código
+        if nodo_vuelo is None:
+            raise HTTPException(status_code=404, detail="Vuelo no encontrado en la lista")
+        if nueva_posicion < 0 or nueva_posicion >= lista_vuelos._size:
+            raise HTTPException(status_code=400, detail="Posición fuera de rango")
+        lista_vuelos.extraer(nodo_vuelo)  # Extraer el nodo del vuelo de la lista
+        nodo_referencia = lista_vuelos.obtener_nodo_por_posicion(nueva_posicion)  # Obtener el nodo de referencia para la nueva posición
+        if nodo_referencia is None:
+            # Esto no debería pasar pq en este punto la posicion está dentro del rango
+            raise HTTPException(status_code=404, detail="Posición no válida en la lista")
+        lista_vuelos.insertar_entre(nodo_vuelo._vuelo, nodo_referencia._anterior, nodo_referencia, db)  # Insertar el vuelo en la nueva posición
+        return {"mensaje": "Vuelo reordenado exitosamente", "vuelo": nodo_vuelo._vuelo.codigo, "nueva_posicion": nueva_posicion}
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

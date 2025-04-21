@@ -52,14 +52,23 @@ class ListaVuelos:
             return None
         return self._trailer._anterior._vuelo
     
-    def obtener_nodo(self, posicion:int):
+    def obtener_nodo_por_posicion(self, posicion:int):
         # Obtener un nodo en una posición específica
-        if posicion < 0 or posicion >= self._size:
+        if posicion < 0 or posicion > self._size:
             raise IndexError("Posición fuera de rango")
         nodo_actual = self._header._siguiente
         for i in range(posicion):   ## Iterar hasta la posición deseada
             nodo_actual = nodo_actual._siguiente
         return nodo_actual
+
+    def obtener_nodo_por_codigo(self, codigo:str):
+        # Obtener un nodo por el código del vuelo
+        nodo_actual = self._header._siguiente
+        while nodo_actual != self._trailer:
+            if nodo_actual._vuelo.codigo == codigo:
+                return nodo_actual
+            nodo_actual = nodo_actual._siguiente
+        return None
     
     def insertar_entre(self, info: Vuelo, anterior, siguiente, db:Session):
         nuevo_nodo = self._Nodo(info, anterior, siguiente)
