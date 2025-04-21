@@ -69,25 +69,8 @@ class ListaVuelos:
 
         # Registrar el orden del vuelo en la base de datos
 
-        # Si se añade al primero:
-        if anterior == self._header:
-            try:
-                # Aumentar el orden de todos los vuelos en la lista
-                vuelos_a_reaordenar = db.query(ListaVueloDB).filter(ListaVueloDB.orden >= 1).order_by(ListaVueloDB.orden.desc()).all()
-                for vuelo in vuelos_a_reaordenar:
-                    vuelo.orden += 1
-                    db.commit()
-                # Agregar el nuevo vuelo al inicio de la lista
-                nuevo_vuelo = ListaVueloDB(codigo_vuelo=info.codigo, orden=1)
-                db.add(nuevo_vuelo)
-                db.commit()
-                db.refresh(nuevo_vuelo)  # Refrescar el objeto para obtener el ID generado
-            except Exception as e:
-                db.rollback()
-                raise e
-        
-        # Si está en medio:
-        elif siguiente != self._trailer:
+        # Si NO se añade al ultimo
+        if siguiente != self._trailer:
             try:
                 # Encontrar el siguiente vuelo en la base de datos
                 siguiente_vuelo_db = db.query(ListaVueloDB).filter(ListaVueloDB.codigo_vuelo == siguiente._vuelo.codigo).first()
@@ -109,7 +92,7 @@ class ListaVuelos:
                 db.rollback()
                 raise e
         
-        # Si se añade al último:
+        # Si se añade al último:    (se debe hacer la distincion porque en el otro caso revisa el siguiente nodo y revisa su orden en la db)
         elif siguiente == self._trailer:
             try:
                 # Obtener el último vuelo en la base de datos
